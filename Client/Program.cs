@@ -6,9 +6,9 @@ namespace Client;
 
 class Program
 {
-    static void Main()
+    static async Task Main()
     {
-        // connect to server
+        // connect to serve
         string server = "127.0.0.1";
         int port = 45445;
 
@@ -17,19 +17,26 @@ class Program
 
         Console.WriteLine("Connect to server.");
 
-        // send and give message
+        _ = GiveMessage(stream);
+
+        // send message
         while(true)
         {
-            var message = Console.ReadLine();
+            var message = await Task.Run(() => Console.ReadLine());
             if(message == "close") break;
 
             // send message
             var buffer = Encoding.UTF8.GetBytes(message);
-            stream.Write(buffer, 0, buffer.Length);
+            await stream.WriteAsync(buffer, 0, buffer.Length);
+        }
+    }
 
-            // give answer
+    static async Task GiveMessage(NetworkStream stream)
+    {
+        while(true)
+        {
             var responseBuffer = new byte[1024];
-            var bytesRead = stream.Read(responseBuffer, 0, responseBuffer.Length);
+            var bytesRead =  await stream.ReadAsync(responseBuffer, 0, responseBuffer.Length);
             var response = Encoding.UTF8.GetString(responseBuffer, 0, bytesRead);
             Console.WriteLine(response);
         }
