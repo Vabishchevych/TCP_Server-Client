@@ -10,6 +10,7 @@ class Program
 {
 
     static public List<TcpClient> clients = new List<TcpClient>();
+    static public List<string> clientNames = new List<string>();
     static async Task Main()
     {
         // init and start server
@@ -18,13 +19,12 @@ class Program
 
         Console.WriteLine("Start server");
 
-        listener.Start(2);
+        listener.Start();
 
         while(true)
         {
              // accept client
             var client = await listener.AcceptTcpClientAsync();
-            clients.Add(client);
 
             _ = MessageFromClients(client);   
         }
@@ -34,6 +34,37 @@ class Program
     {
 
         var stream = client.GetStream();
+
+        // add client's name
+        var bufferName = new byte[1024];
+        int nameByte;
+        string name = "";
+
+        while(true)
+        {
+            bufferName = new byte[1024];
+            nameByte = await stream.ReadAsync(bufferName, 0, bufferName.Length);
+            if(nameByte == 0) return;
+            name = Encoding.UTF8.GetString(bufferName, 0, nameByte);
+            bool isName = true;
+            foreach(var i in clientNames)
+            {
+                if(i == name)
+                {
+                    await stream.WriteAsync([0],0,1);
+                    isName = false;
+                    break;
+                }
+            } 
+            if(isName)
+            {
+                clients.Add(client);
+                clientNames.Add(name);
+                await stream.WriteAsync([1],0,1);
+                break;
+            } 
+        }
+
         while(true)
         {
             // Buffering and message processing cycle
@@ -43,6 +74,12 @@ class Program
 
             var message = Encoding.UTF8.GetString(buffer, 0, bytesRead);
             Console.WriteLine(message);
+
+            if(message == "names") // Temporarily
+            {
+                foreach(var i in clientNames) Console.Write(i + " ");
+                Console.WriteLine("");
+            }
 
             var response = Encoding.UTF8.GetBytes("The server received a message.");
             await stream.WriteAsync(response, 0, response.Length);
@@ -55,6 +92,7 @@ class Program
             }
         }
         clients.Remove(client);
+        clientNames.Remove(name);
         client.Close();
     }
 }
